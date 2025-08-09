@@ -1,32 +1,106 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WebSocket Chat</title>
-    <style>
-        #messageBox {
-            height: 300px;
-            width: 100%;
-            border: 1px solid #ccc;
-            padding: 10px;
-            overflow-y: scroll;
-        }
-        #messageInput {
-            width: 80%;
-        }
-        #sendBtn {
-            width: 15%;
-            cursor: pointer;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WebSocket Broadcast</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+    }
+    #messages {
+      margin-bottom: 10px;
+      padding: 10px;
+      background: #f4f4f4;
+      border: 1px solid #ccc;
+      height: 200px;
+      overflow-y: scroll;
+    }
+    input[type="text"] {
+      width: 80%;
+      padding: 8px;
+      margin-top: 10px;
+    }
+    button {
+      width: 18%;
+      padding: 10px;
+      margin-top: 10px;
+      cursor: pointer;
+      background-color: #007bff;
+      color: white;
+      border: none;
+    }
+    button:hover {
+      background-color: #0056b3;
+    }
+  </style>
 </head>
 <body>
-    <h2>WebSocket Chat</h2>
-    <div id="messageBox"></div>
-    <input type="text" id="messageInput" placeholder="Type a message">
-    <button id="sendBtn">Send</button>
+  <h1>WebSocket Broadcast Example</h1>
+  <div id="messages"></div>
+  <input type="text" id="messageInput" placeholder="Type a message and press Enter" />
+  <button id="sendBtn">Send Message</button>
 
-    <script src="main.js"></script>  <!-- 引入 JavaScript -->
+  <script>
+    const messageInput = document.getElementById('messageInput');  // 获取输入框
+    const sendBtn = document.getElementById('sendBtn');            // 获取发送按钮
+    const messageBox = document.getElementById('messages');        // 显示消息的容器
+
+    // 创建 WebSocket 连接（连接到 80 端口）
+    const ws = new WebSocket('ws://52.197.53.224'); // 连接到 WebSocket 服务端
+
+    // WebSocket 连接建立时触发
+    ws.addEventListener('open', () => {
+      console.log('WebSocket connected');
+      displayMessage('Connected to WebSocket server', 'Server'); // 标记为 Server 消息
+    });
+
+    // 接收到 WebSocket 消息时触发
+    ws.addEventListener('message', (event) => {
+      const serverMessage = event.data;
+      console.log('Received from server: ', serverMessage);
+      displayMessage(serverMessage, 'Server'); // 标记为 Server 消息
+    });
+
+    // 监听 WebSocket 错误
+    ws.addEventListener('error', (error) => {
+      console.error('WebSocket error: ', error);
+      displayMessage('WebSocket error occurred', 'Server');
+    });
+
+    // 监听 WebSocket 关闭
+    ws.addEventListener('close', () => {
+      console.log('WebSocket connection closed');
+      displayMessage('Disconnected from WebSocket server', 'Server');
+    });
+
+    // 发送按钮点击事件
+    sendBtn.addEventListener('click', () => {
+      const message = messageInput.value.trim();
+      if (message && ws.readyState === WebSocket.OPEN) {
+        // 发送消息给服务器
+        ws.send(message);
+        displayMessage(`You: ${message}`, 'You');  // 显示用户发送的消息
+        messageInput.value = '';  // 清空输入框
+      } else {
+        console.log('WebSocket is not open');
+        displayMessage('WebSocket is not open or message is empty', 'Server');
+      }
+    });
+
+    // 显示消息的函数
+    function displayMessage(message, sender) {
+      const messageDiv = document.createElement('div');
+      messageDiv.textContent = `${sender}: ${message}`;
+      messageBox.appendChild(messageDiv);  // 将消息添加到显示区域
+    }
+
+    // 监听 Enter 键发送消息
+    messageInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        sendBtn.click();  // 按下 Enter 键模拟点击发送按钮
+      }
+    });
+  </script>
 </body>
 </html>
