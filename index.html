@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>WebSocket Broadcast</title>
+  <title>广播</title>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -13,16 +13,15 @@
       padding: 10px;
       background: #f4f4f4;
       border: 1px solid #ccc;
-      height: 200px;
+      height: 500px;
       overflow-y: scroll;
     }
     input[type="text"] {
-      width: 80%;
+      width: 95%;
       padding: 8px;
       margin-top: 10px;
     }
     button {
-      width: 18%;
       padding: 10px;
       margin-top: 10px;
       cursor: pointer;
@@ -33,58 +32,88 @@
     button:hover {
       background-color: #0056b3;
     }
+    #status {
+      color: red;
+      font-weight: bold;
+    }
   </style>
 </head>
 <body>
-  <h1>WebSocket Broadcast Example</h1>
+  <h1>Broadcast</h1>
   <div id="messages"></div>
-  <input type="text" id="messageInput" placeholder="Type a message and press Enter" />
-  <button id="sendBtn">Send Message</button>
+  <input type="text" id="messageInput" placeholder="输入消息..." />
+  <button id="sendBtn">发送</button>
+  <p id="onlineCount">在线人数: 0</p>
+  <p id="status">状态: 正在重连</p>
 
   <script>
-    const messageInput = document.getElementById('messageInput');  // 获取输入框
-    const sendBtn = document.getElementById('sendBtn');            // 获取发送按钮
-    const messageBox = document.getElementById('messages');        // 显示消息的容器
+    const messageInput = document.getElementById('messageInput');
+    const sendBtn = document.getElementById('sendBtn');
+    const messageBox = document.getElementById('messages');
+    const onlineCountElement = document.getElementById('onlineCount');
+    const statusElement = document.getElementById('status'); // 显示连接状态
 
-    // 创建 WebSocket 连接（连接到 80 端口）
-    const ws = new WebSocket('ws://52.197.53.224'); // 连接到 WebSocket 服务端
+    let ws;
+    let reconnectAttempts = 0;
+    const maxReconnectAttempts = 15; // 最大重连次数
+    const reconnectDelay = 3000; // 每次重连间隔（毫秒）
 
-    // WebSocket 连接建立时触发
-    ws.addEventListener('open', () => {
-      console.log('WebSocket connected');
-      displayMessage('Connected to WebSocket server', 'Server'); // 标记为 Server 消息
-    });
+    function connectWebSocket() {
+      ws = new WebSocket('ws://52.197.53.224'); // 连接到 WebSocket 服务端
 
-    // 接收到 WebSocket 消息时触发
-    ws.addEventListener('message', (event) => {
-      const serverMessage = event.data;
-      console.log('Received from server: ', serverMessage);
-      displayMessage(serverMessage, 'Server'); // 标记为 Server 消息
-    });
+      ws.addEventListener('open', () => {
+        console.log('WebSocket connected');
+        statusElement.textContent = '状态: 已连接';
+        statusElement.style.color = 'green';  // 设置为绿色表示已连接
+        reconnectAttempts = 0;  // 重置重连尝试次数
+        displayMessage('已连接到服务器', '消息');
+      });
 
-    // 监听 WebSocket 错误
-    ws.addEventListener('error', (error) => {
-      console.error('WebSocket error: ', error);
-      displayMessage('WebSocket error occurred', 'Server');
-    });
+      ws.addEventListener('message', (event) => {
+        const message = event.data;
+        console.log('Received from server: ', message);
 
-    // 监听 WebSocket 关闭
-    ws.addEventListener('close', () => {
-      console.log('WebSocket connection closed');
-      displayMessage('Disconnected from WebSocket server', 'Server');
-    });
+        // 更新在线人数
+        if (message.startsWith('在线人数:')) {
+          onlineCountElement.textContent = message;
+        } else {
+          displayMessage(message, '服务器');
+        }
+      });
 
-    // 发送按钮点击事件
+      ws.addEventListener('close', () => {
+        console.log('WebSocket disconnected');
+        statusElement.textContent = '状态: 正在重连';
+        statusElement.style.color = 'red';  // 设置为红色表示已断开
+
+        // 连接断开时，尝试重连
+        if (reconnectAttempts < maxReconnectAttempts) {
+          reconnectAttempts++;
+          console.log(`Attempting to reconnect... (Attempt ${reconnectAttempts})`);
+          setTimeout(connectWebSocket, reconnectDelay); // 延迟重连
+        } else {
+          console.log('Max reconnect attempts reached');
+          statusElement.textContent = 'Status: Reconnect Failed';
+        }
+      });
+
+      ws.addEventListener('error', (error) => {
+        console.log('WebSocket error: ', error);
+      });
+    }
+
+    // 连接 WebSocket 服务端
+    connectWebSocket();
+
     sendBtn.addEventListener('click', () => {
       const message = messageInput.value.trim();
       if (message && ws.readyState === WebSocket.OPEN) {
-        // 发送消息给服务器
         ws.send(message);
-        displayMessage(`You: ${message}`, 'You');  // 显示用户发送的消息
-        messageInput.value = '';  // 清空输入框
+        displayMessage(`你: ${message}`, '消息');
+        messageInput.value = '';
       } else {
         console.log('WebSocket is not open');
-        displayMessage('WebSocket is not open or message is empty', 'Server');
+        displayMessage('服务器关闭或消息无效', '错误');
       }
     });
 
@@ -92,13 +121,13 @@
     function displayMessage(message, sender) {
       const messageDiv = document.createElement('div');
       messageDiv.textContent = `${sender}: ${message}`;
-      messageBox.appendChild(messageDiv);  // 将消息添加到显示区域
+      messageBox.appendChild(messageDiv);
     }
 
     // 监听 Enter 键发送消息
     messageInput.addEventListener('keypress', (e) => {
       if (e.key === 'Enter') {
-        sendBtn.click();  // 按下 Enter 键模拟点击发送按钮
+        sendBtn.click();
       }
     });
   </script>
